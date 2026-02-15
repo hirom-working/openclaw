@@ -432,6 +432,7 @@ export const OpenClawSchema = z
           })
           .strict()
           .optional(),
+        publicUrl: z.string().optional(),
         tailscale: z
           .object({
             mode: z.union([z.literal("off"), z.literal("serve"), z.literal("funnel")]).optional(),
