@@ -1,9 +1,12 @@
 import { messagingApi } from "@line/bot-sdk";
 import type { LineSendResult } from "./types.js";
+import type { OpenClawConfig } from "../config/types.js";
 import { loadConfig } from "../config/config.js";
 import { logVerbose } from "../globals.js";
 import { recordChannelActivity } from "../infra/channel-activity.js";
 import { resolveLineAccount } from "./accounts.js";
+import { loadWebMedia } from "../web/media.js";
+import { storeMedia } from "../gateway/media-proxy.js";
 
 // Use the messaging API types directly
 type Message = messagingApi.Message;
@@ -132,7 +135,11 @@ export async function sendMessageLine(
 
   // Add media if provided
   if (opts.mediaUrl?.trim()) {
-    messages.push(createImageMessage(opts.mediaUrl.trim()));
+    const rawUrl = opts.mediaUrl.trim();
+    const imageUrl = await resolveLineMediaUrl(rawUrl, cfg);
+    if (imageUrl) {
+      messages.push(createImageMessage(imageUrl));
+    }
   }
 
   // Add text message
@@ -634,4 +641,35 @@ export async function getUserDisplayName(
 ): Promise<string> {
   const profile = await getUserProfile(userId, opts);
   return profile?.displayName ?? userId;
+}
+
+/**
+ * Resolve a media URL for LINE delivery.
+ * - HTTPS URLs are passed through directly.
+ * - Local file paths and HTTP URLs are loaded, stored in the in-memory
+ *   media proxy, and returned as a public HTTPS URL that LINE servers can fetch.
+ * Returns null if the URL cannot be resolved (e.g. publicUrl not configured).
+ */
+export async function resolveLineMediaUrl(
+  mediaUrl: string,
+  cfg: OpenClawConfig,
+): Promise<string | null> {
+  if (mediaUrl.startsWith("https://")) {
+    return mediaUrl;
+  }
+
+  const publicUrl = cfg.gateway?.publicUrl?.replace(/\/+$/, "");
+  if (!publicUrl) {
+    logVerbose("line: cannot send local media — gateway.publicUrl not configured");
+    return null;
+  }
+
+  try {
+    const media = await loadWebMedia(mediaUrl);
+    const id = storeMedia(media.buffer, media.contentType ?? "image/jpeg");
+    return `${publicUrl}/media/${id}`;
+  } catch (err) {
+    logVerbose(`line: failed to load media "${mediaUrl}": ${String(err)}`);
+    return null;
+  }
 }

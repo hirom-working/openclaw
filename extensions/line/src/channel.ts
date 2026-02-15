@@ -3,6 +3,7 @@ import {
   DEFAULT_ACCOUNT_ID,
   LineConfigSchema,
   processLineMessage,
+  resolveLineMediaUrl,
   type ChannelPlugin,
   type ChannelStatusIssue,
   type OpenClawConfig,
@@ -383,7 +384,15 @@ export const linePlugin: ChannelPlugin<ResolvedLineAccount> = {
       const chunks = processed.text
         ? runtime.channel.text.chunkMarkdownText(processed.text, chunkLimit)
         : [];
-      const mediaUrls = payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []);
+      const rawMediaUrls = payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []);
+
+      // Resolve local file paths / HTTP URLs to public HTTPS proxy URLs for LINE
+      const mediaUrls: string[] = [];
+      for (const url of rawMediaUrls) {
+        const resolved = await resolveLineMediaUrl(url.trim(), cfg);
+        if (resolved) mediaUrls.push(resolved);
+      }
+
       const shouldSendQuickRepliesInline = chunks.length === 0 && hasQuickReplies;
 
       if (!shouldSendQuickRepliesInline) {

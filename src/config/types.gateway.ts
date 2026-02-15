@@ -312,4 +312,6 @@ export type GatewayConfig = {
   trustedProxies?: string[];
   /** Tool access restrictions for HTTP /tools/invoke endpoint. */
   tools?: GatewayToolsConfig;
+  /** Public HTTPS URL of this gateway (for channels that require public media URLs, e.g. LINE). */
+  publicUrl?: string;
 };

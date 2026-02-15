@@ -55,6 +55,7 @@ import { isPrivateOrLoopbackAddress, resolveGatewayClientIp } from "./net.js";
 import { handleOpenAiHttpRequest } from "./openai-http.js";
 import { handleOpenResponsesHttpRequest } from "./openresponses-http.js";
 import { handleToolsInvokeHttpRequest } from "./tools-invoke-http.js";
+import { getMedia } from "./media-proxy.js";
 
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
 type HookAuthFailure = { count: number; windowStartedAtMs: number };
@@ -483,6 +484,35 @@ export function createGatewayHttpServer(opts: {
       const configSnapshot = loadConfig();
       const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
       const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
+
+      // Temporary media proxy (for LINE image delivery — no auth required)
+      if (requestPath.startsWith("/media/")) {
+        if (req.method !== "GET" && req.method !== "HEAD") {
+          res.writeHead(405, { "Content-Type": "text/plain", Allow: "GET, HEAD" });
+          res.end("Method Not Allowed");
+          return;
+        }
+        const id = requestPath.slice("/media/".length);
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+          res.writeHead(404, { "Content-Type": "text/plain" });
+          res.end("Not found");
+          return;
+        }
+        const media = getMedia(id);
+        if (!media) {
+          res.writeHead(404, { "Content-Type": "text/plain" });
+          res.end("Not found");
+          return;
+        }
+        res.writeHead(200, {
+          "Content-Type": media.contentType,
+          "Cache-Control": "private, no-store, max-age=0",
+          "Content-Length": String(media.buffer.length),
+        });
+        res.end(req.method === "HEAD" ? undefined : media.buffer);
+        return;
+      }
+
       if (await handleHooksRequest(req, res)) {
         return;
       }
