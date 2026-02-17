@@ -107,26 +107,17 @@ const voiceCallConfigSchema = {
   },
 };
 
+// Tool schema: Only expose initiate_call and get_status.
+// In conversation mode, the extension handles the actual conversation automatically
+// (STT → response generation → TTS). The agent only needs to initiate the call.
+// Other actions (end_call, continue_call, speak_to_user) remain available via
+// gateway methods but are hidden from the LLM to prevent premature call termination.
 const VoiceCallToolSchema = Type.Union([
   Type.Object({
     action: Type.Literal("initiate_call"),
     to: Type.Optional(Type.String({ description: "Call target" })),
     message: Type.String({ description: "Intro message" }),
     mode: Type.Optional(Type.Union([Type.Literal("notify"), Type.Literal("conversation")])),
-  }),
-  Type.Object({
-    action: Type.Literal("continue_call"),
-    callId: Type.String({ description: "Call ID" }),
-    message: Type.String({ description: "Follow-up message" }),
-  }),
-  Type.Object({
-    action: Type.Literal("speak_to_user"),
-    callId: Type.String({ description: "Call ID" }),
-    message: Type.String({ description: "Message to speak" }),
-  }),
-  Type.Object({
-    action: Type.Literal("end_call"),
-    callId: Type.String({ description: "Call ID" }),
   }),
   Type.Object({
     action: Type.Literal("get_status"),
