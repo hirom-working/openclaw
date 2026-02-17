@@ -108,7 +108,8 @@ export class OpenAITTSProvider {
       body.instructions = effectiveInstructions;
     }
 
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+    const baseUrl = (process.env.OPENAI_TTS_BASE_URL?.trim() || "https://api.openai.com/v1").replace(/\/+$/, "");
+    const response = await fetch(`${baseUrl}/audio/speech`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
