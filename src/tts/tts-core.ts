@@ -594,9 +594,10 @@ export async function openaiTTS(params: {
   model: string;
   voice: string;
   responseFormat: "mp3" | "opus" | "pcm";
+  instructions?: string;
   timeoutMs: number;
 }): Promise<Buffer> {
-  const { text, apiKey, model, voice, responseFormat, timeoutMs } = params;
+  const { text, apiKey, model, voice, responseFormat, instructions, timeoutMs } = params;
 
   if (!isValidOpenAIModel(model)) {
     throw new Error(`Invalid model: ${model}`);
@@ -609,18 +610,23 @@ export async function openaiTTS(params: {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    const body: Record<string, unknown> = {
+      model,
+      input: text,
+      voice,
+      response_format: responseFormat,
+    };
+    if (instructions && model.includes("4o")) {
+      body.instructions = instructions;
+    }
+
     const response = await fetch(`${getOpenAITtsBaseUrl()}/audio/speech`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        input: text,
-        voice,
-        response_format: responseFormat,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
