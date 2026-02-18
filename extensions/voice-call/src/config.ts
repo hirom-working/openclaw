@@ -128,6 +128,8 @@ export const TtsConfigSchema = z
         apiKey: z.string().optional(),
         model: z.string().optional(),
         voice: z.string().optional(),
+        /** Instructions for gpt-4o-mini-tts (tone, style, persona). */
+        instructions: z.string().optional(),
       })
       .strict()
       .optional(),
